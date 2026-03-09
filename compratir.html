@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foro Julia - Compartir Código</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f4f8;
+            color: #222;
+        }
+
+        header {
+            background: #5e3a9e;
+            color: white;
+            text-align: center;
+            padding: 24px;
+        }
+
+        header h1 {
+            margin: 0;
+        }
+
+        header p {
+            margin-top: 8px;
+        }
+
+        .contenedor {
+            width: 85%;
+            max-width: 1000px;
+            margin: 30px auto;
+        }
+
+        .formulario, .publicacion {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        h2, h3 {
+            margin-top: 0;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-top: 12px;
+            margin-bottom: 6px;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: Consolas, monospace;
+        }
+
+        .botones {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #5e3a9e;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #4b2f80;
+        }
+
+        .eliminar {
+            background: #c0392b;
+        }
+
+        .eliminar:hover {
+            background: #a93226;
+        }
+
+        .codigo {
+            background: #1e1e1e;
+            color: #dcdcdc;
+            padding: 14px;
+            border-radius: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            font-family: Consolas, monospace;
+            margin-top: 10px;
+        }
+
+        .meta {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .vacio {
+            text-align: center;
+            color: #777;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Foro de Julia</h1>
+        <p>Comparte código, scripts, funciones y modelos en Julia</p>
+    </header>
+
+    <div class="contenedor">
+
+        <div class="formulario">
+            <h2>Nueva publicación</h2>
+
+            <label for="autor">Autor</label>
+            <input type="text" id="autor" placeholder="Escribe tu nombre">
+
+            <label for="titulo">Título</label>
+            <input type="text" id="titulo" placeholder="Ej: Restricción de rampas en Julia">
+
+            <label for="descripcion">Descripción</label>
+            <textarea id="descripcion" placeholder="Explica brevemente qué hace tu código"></textarea>
+
+            <label for="codigo">Código Julia</label>
+            <textarea id="codigo" placeholder='Ejemplo:
+using JuMP
+using HiGHS
+
+model = Model(HiGHS.Optimizer)'></textarea>
+
+            <div class="botones">
+                <button onclick="guardarPublicacion()">Publicar</button>
+                <button class="eliminar" onclick="borrarTodo()">Borrar todo</button>
+            </div>
+        </div>
+
+        <div id="listaPublicaciones"></div>
+    </div>
+
+    <script>
+        function obtenerPublicaciones() {
+            return JSON.parse(localStorage.getItem("foroJuliaPublicaciones")) || [];
+        }
+
+        function guardarEnStorage(publicaciones) {
+            localStorage.setItem("foroJuliaPublicaciones", JSON.stringify(publicaciones));
+        }
+
+        function guardarPublicacion() {
+            const autor = document.getElementById("autor").value.trim();
+            const titulo = document.getElementById("titulo").value.trim();
+            const descripcion = document.getElementById("descripcion").value.trim();
+            const codigo = document.getElementById("codigo").value.trim();
+
+            if (!autor || !titulo || !codigo) {
+                alert("Debes completar al menos Autor, Título y Código.");
+                return;
+            }
+
+            const publicaciones = obtenerPublicaciones();
+
+            const nuevaPublicacion = {
+                id: Date.now(),
+                autor: autor,
+                titulo: titulo,
+                descripcion: descripcion,
+                codigo: codigo,
+                fecha: new Date().toLocaleString()
+            };
+
+            publicaciones.unshift(nuevaPublicacion);
+            guardarEnStorage(publicaciones);
+            mostrarPublicaciones();
+
+            document.getElementById("autor").value = "";
+            document.getElementById("titulo").value = "";
+            document.getElementById("descripcion").value = "";
+            document.getElementById("codigo").value = "";
+        }
+
+        function mostrarPublicaciones() {
+            const contenedor = document.getElementById("listaPublicaciones");
+            const publicaciones = obtenerPublicaciones();
+
+            if (publicaciones.length === 0) {
+                contenedor.innerHTML = '<div class="vacio">Aún no hay publicaciones guardadas.</div>';
+                return;
+            }
+
+            contenedor.innerHTML = "";
+
+            publicaciones.forEach(pub => {
+                const div = document.createElement("div");
+                div.className = "publicacion";
+
+                div.innerHTML = `
+                    <h3>${escapeHTML(pub.titulo)}</h3>
+                    <p><strong>Autor:</strong> ${escapeHTML(pub.autor)}</p>
+                    <p>${escapeHTML(pub.descripcion)}</p>
+                    <div class="codigo">${escapeHTML(pub.codigo)}</div>
+                    <div class="meta">Publicado: ${escapeHTML(pub.fecha)}</div>
+                    <div class="botones">
+                        <button onclick="copiarCodigo(${pub.id})">Copiar código</button>
+                        <button class="eliminar" onclick="eliminarPublicacion(${pub.id})">Eliminar</button>
+                    </div>
+                `;
+
+                contenedor.appendChild(div);
+            });
+        }
+
+        function eliminarPublicacion(id) {
+            let publicaciones = obtenerPublicaciones();
+            publicaciones = publicaciones.filter(pub => pub.id !== id);
+            guardarEnStorage(publicaciones);
+            mostrarPublicaciones();
+        }
+
+        function borrarTodo() {
+            const confirmar = confirm("¿Seguro que quieres borrar todas las publicaciones?");
+            if (!confirmar) return;
+
+            localStorage.removeItem("foroJuliaPublicaciones");
+            mostrarPublicaciones();
+        }
+
+        function copiarCodigo(id) {
+            const publicaciones = obtenerPublicaciones();
+            const publicacion = publicaciones.find(pub => pub.id === id);
+
+            if (!publicacion) return;
+
+            navigator.clipboard.writeText(publicacion.codigo)
+                .then(() => alert("Código copiado al portapapeles."))
+                .catch(() => alert("No se pudo copiar el código."));
+        }
+
+        function escapeHTML(texto) {
+            return texto
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        mostrarPublicaciones();
+    </script>
+
+</body>
+</html>
