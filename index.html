@@ -188,6 +188,7 @@
                 <button onclick="document.getElementById('archivoImportacion').click()">Importar respaldo</button>
                 <button class="eliminar" onclick="borrarTodo()">Borrar todo</button>
             </div>
+
             <input type="file" id="archivoImportacion" class="oculto" accept="application/json" onchange="importarPublicaciones(event)">
         </div>
 
@@ -213,6 +214,18 @@ model = Model(HiGHS.Optimizer)'></textarea>
             <div class="botones">
                 <button onclick="guardarPublicacion()">Publicar</button>
             </div>
+        </div>
+
+        <div class="formulario">
+            <h2>Buscar publicaciones</h2>
+
+            <label for="busqueda">Buscar por autor, título o contenido</label>
+            <input 
+                type="text" 
+                id="busqueda" 
+                placeholder="Ej: JuMP, rampas, almacenamiento, Cristian..."
+                oninput="filtrarPublicaciones()"
+            >
         </div>
 
         <div id="listaPublicaciones"></div>
@@ -270,19 +283,40 @@ model = Model(HiGHS.Optimizer)'></textarea>
             document.getElementById("codigo").value = "";
         }
 
+        function filtrarPublicaciones() {
+            mostrarPublicaciones();
+        }
+
         function mostrarPublicaciones() {
             const contenedor = document.getElementById("listaPublicaciones");
             const publicaciones = obtenerPublicaciones();
+            const inputBusqueda = document.getElementById("busqueda");
+            const textoBusqueda = inputBusqueda ? inputBusqueda.value.trim().toLowerCase() : "";
 
-            if (publicaciones.length === 0) {
-                contenedor.innerHTML = '<div class="vacio">Aún no hay publicaciones guardadas.</div>';
+            let publicacionesAMostrar = publicaciones;
+
+            if (textoBusqueda) {
+                publicacionesAMostrar = publicaciones.filter(pub => {
+                    return (
+                        pub.autor.toLowerCase().includes(textoBusqueda) ||
+                        pub.titulo.toLowerCase().includes(textoBusqueda) ||
+                        (pub.descripcion && pub.descripcion.toLowerCase().includes(textoBusqueda)) ||
+                        pub.codigo.toLowerCase().includes(textoBusqueda)
+                    );
+                });
+            }
+
+            if (publicacionesAMostrar.length === 0) {
+                contenedor.innerHTML = textoBusqueda
+                    ? '<div class="vacio">No se encontraron publicaciones con ese criterio de búsqueda.</div>'
+                    : '<div class="vacio">Aún no hay publicaciones guardadas.</div>';
                 actualizarPanelAlmacenamiento();
                 return;
             }
 
             contenedor.innerHTML = "";
 
-            publicaciones.forEach(pub => {
+            publicacionesAMostrar.forEach(pub => {
                 const div = document.createElement("div");
                 div.className = "publicacion";
 
@@ -413,7 +447,7 @@ model = Model(HiGHS.Optimizer)'></textarea>
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;")
-                .replace(/\"/g, "&quot;")
+                .replace(/"/g, "&quot;")
                 .replace(/'/g, "&#039;");
         }
 
