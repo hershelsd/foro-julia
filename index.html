@@ -33,7 +33,7 @@
             margin: 30px auto;
         }
 
-        .formulario, .publicacion {
+        .formulario, .publicacion, .almacenamiento {
             background: white;
             border-radius: 10px;
             padding: 20px;
@@ -96,6 +96,14 @@
             background: #a93226;
         }
 
+        .secundario {
+            background: #2d7d46;
+        }
+
+        .secundario:hover {
+            background: #25673a;
+        }
+
         .codigo {
             background: #1e1e1e;
             color: #dcdcdc;
@@ -120,6 +128,31 @@
             background: white;
             border-radius: 10px;
         }
+
+        .estadisticas {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .tarjeta {
+            background: #f7f5fc;
+            border: 1px solid #e0d9f1;
+            border-radius: 8px;
+            padding: 14px;
+        }
+
+        .tarjeta strong {
+            display: block;
+            font-size: 20px;
+            margin-top: 6px;
+            color: #5e3a9e;
+        }
+
+        .oculto {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -130,6 +163,33 @@
     </header>
 
     <div class="contenedor">
+
+        <div class="almacenamiento">
+            <h2>Almacenamiento de publicaciones</h2>
+            <p>Las publicaciones se guardan en el navegador mediante <strong>localStorage</strong>. Además, puedes exportarlas a un archivo JSON para respaldo o importarlas después.</p>
+
+            <div class="estadisticas">
+                <div class="tarjeta">
+                    Publicaciones guardadas
+                    <strong id="totalPublicaciones">0</strong>
+                </div>
+                <div class="tarjeta">
+                    Espacio estimado usado
+                    <strong id="tamanoStorage">0 KB</strong>
+                </div>
+                <div class="tarjeta">
+                    Última actualización
+                    <strong id="ultimaActualizacion">Sin registros</strong>
+                </div>
+            </div>
+
+            <div class="botones">
+                <button class="secundario" onclick="exportarPublicaciones()">Exportar respaldo</button>
+                <button onclick="document.getElementById('archivoImportacion').click()">Importar respaldo</button>
+                <button class="eliminar" onclick="borrarTodo()">Borrar todo</button>
+            </div>
+            <input type="file" id="archivoImportacion" class="oculto" accept="application/json" onchange="importarPublicaciones(event)">
+        </div>
 
         <div class="formulario">
             <h2>Nueva publicación</h2>
@@ -152,7 +212,6 @@ model = Model(HiGHS.Optimizer)'></textarea>
 
             <div class="botones">
                 <button onclick="guardarPublicacion()">Publicar</button>
-                <button class="eliminar" onclick="borrarTodo()">Borrar todo</button>
             </div>
         </div>
 
@@ -160,12 +219,23 @@ model = Model(HiGHS.Optimizer)'></textarea>
     </div>
 
     <script>
+        const STORAGE_KEY = "foroJuliaPublicaciones";
+        const STORAGE_META_KEY = "foroJuliaMeta";
+
         function obtenerPublicaciones() {
-            return JSON.parse(localStorage.getItem("foroJuliaPublicaciones")) || [];
+            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         }
 
         function guardarEnStorage(publicaciones) {
-            localStorage.setItem("foroJuliaPublicaciones", JSON.stringify(publicaciones));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(publicaciones));
+            localStorage.setItem(STORAGE_META_KEY, JSON.stringify({
+                ultimaActualizacion: new Date().toLocaleString()
+            }));
+            actualizarPanelAlmacenamiento();
+        }
+
+        function obtenerMetaStorage() {
+            return JSON.parse(localStorage.getItem(STORAGE_META_KEY)) || {};
         }
 
         function guardarPublicacion() {
@@ -206,6 +276,7 @@ model = Model(HiGHS.Optimizer)'></textarea>
 
             if (publicaciones.length === 0) {
                 contenedor.innerHTML = '<div class="vacio">Aún no hay publicaciones guardadas.</div>';
+                actualizarPanelAlmacenamiento();
                 return;
             }
 
@@ -218,7 +289,7 @@ model = Model(HiGHS.Optimizer)'></textarea>
                 div.innerHTML = `
                     <h3>${escapeHTML(pub.titulo)}</h3>
                     <p><strong>Autor:</strong> ${escapeHTML(pub.autor)}</p>
-                    <p>${escapeHTML(pub.descripcion)}</p>
+                    <p>${escapeHTML(pub.descripcion || "Sin descripción.")}</p>
                     <div class="codigo">${escapeHTML(pub.codigo)}</div>
                     <div class="meta">Publicado: ${escapeHTML(pub.fecha)}</div>
                     <div class="botones">
@@ -229,6 +300,8 @@ model = Model(HiGHS.Optimizer)'></textarea>
 
                 contenedor.appendChild(div);
             });
+
+            actualizarPanelAlmacenamiento();
         }
 
         function eliminarPublicacion(id) {
@@ -242,7 +315,8 @@ model = Model(HiGHS.Optimizer)'></textarea>
             const confirmar = confirm("¿Seguro que quieres borrar todas las publicaciones?");
             if (!confirmar) return;
 
-            localStorage.removeItem("foroJuliaPublicaciones");
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(STORAGE_META_KEY);
             mostrarPublicaciones();
         }
 
@@ -257,12 +331,89 @@ model = Model(HiGHS.Optimizer)'></textarea>
                 .catch(() => alert("No se pudo copiar el código."));
         }
 
+        function exportarPublicaciones() {
+            const publicaciones = obtenerPublicaciones();
+
+            if (publicaciones.length === 0) {
+                alert("No hay publicaciones para exportar.");
+                return;
+            }
+
+            const respaldo = {
+                foro: "Foro Julia",
+                fechaExportacion: new Date().toLocaleString(),
+                total: publicaciones.length,
+                publicaciones: publicaciones
+            };
+
+            const blob = new Blob([JSON.stringify(respaldo, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const enlace = document.createElement("a");
+            enlace.href = url;
+            enlace.download = "foro_julia_respaldo.json";
+            enlace.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importarPublicaciones(event) {
+            const archivo = event.target.files[0];
+            if (!archivo) return;
+
+            const lector = new FileReader();
+            lector.onload = function(e) {
+                try {
+                    const contenido = JSON.parse(e.target.result);
+                    const publicacionesImportadas = Array.isArray(contenido)
+                        ? contenido
+                        : (contenido.publicaciones || []);
+
+                    if (!Array.isArray(publicacionesImportadas)) {
+                        throw new Error("Formato inválido.");
+                    }
+
+                    const publicacionesActuales = obtenerPublicaciones();
+                    const mapa = new Map();
+
+                    [...publicacionesActuales, ...publicacionesImportadas].forEach(pub => {
+                        if (pub && pub.id && pub.autor && pub.titulo && pub.codigo) {
+                            mapa.set(pub.id, pub);
+                        }
+                    });
+
+                    const publicacionesFinales = Array.from(mapa.values())
+                        .sort((a, b) => b.id - a.id);
+
+                    guardarEnStorage(publicacionesFinales);
+                    mostrarPublicaciones();
+                    alert("Respaldo importado correctamente.");
+                } catch (error) {
+                    alert("No se pudo importar el archivo. Verifica que sea un JSON válido.");
+                } finally {
+                    event.target.value = "";
+                }
+            };
+
+            lector.readAsText(archivo);
+        }
+
+        function actualizarPanelAlmacenamiento() {
+            const publicaciones = obtenerPublicaciones();
+            const meta = obtenerMetaStorage();
+            const data = localStorage.getItem(STORAGE_KEY) || "[]";
+            const bytes = new Blob([data]).size;
+            const kb = (bytes / 1024).toFixed(2);
+
+            document.getElementById("totalPublicaciones").textContent = publicaciones.length;
+            document.getElementById("tamanoStorage").textContent = `${kb} KB`;
+            document.getElementById("ultimaActualizacion").textContent = meta.ultimaActualizacion || "Sin registros";
+        }
+
         function escapeHTML(texto) {
-            return texto
+            return String(texto)
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
+                .replace(/\"/g, "&quot;")
                 .replace(/'/g, "&#039;");
         }
 
